@@ -2,7 +2,7 @@ import { useState } from 'react';
 import SubwayMap from './SubwayMap';
 import { SUBWAY_LINES } from '../data/subwayLines';
 
-export default function LineSelect({ onSelect, onAbout }) {
+export default function LineSelect({ onSelect, onAbout, onHome }) {
   const [selectedLine, setSelectedLine] = useState(null);
 
   const handleLineSelect = (line) => {
@@ -15,9 +15,14 @@ export default function LineSelect({ onSelect, onAbout }) {
     <div className="line-select-map">
       {/* 헤더 */}
       <div className="map-header">
-        <div>
-          <h1 className="title" style={{ fontSize: 18 }}>서브웨이 스도쿠</h1>
-          <p className="subtitle">호선을 선택하세요 · 수도권</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {onHome && (
+            <button className="back-btn" onClick={onHome} style={{ fontSize: 16 }}>←</button>
+          )}
+          <div>
+            <h1 className="title" style={{ fontSize: 18 }}>노선도 탐색</h1>
+            <p className="subtitle">호선을 선택하세요 · 수도권</p>
+          </div>
         </div>
         <button className="about-btn" onClick={onAbout}>만든이</button>
       </div>

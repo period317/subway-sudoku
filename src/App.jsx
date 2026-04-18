@@ -3,130 +3,142 @@ import Board from './components/Board';
 import NumberPad from './components/NumberPad';
 import LineSelect from './components/LineSelect';
 import About from './components/About';
+import Home from './components/Home';
+import StationCard from './components/StationCard';
 import {
   generatePuzzle, findConflicts, isComplete,
   formatTime, initNotes, eliminateNotes
 } from './utils/sudoku';
+import { getDailyStation, getDailyDiffIdx } from './utils/daily';
 import './App.css';
 
-const DIFFICULTIES = [
-  { key: 'hard',   clues: 26, label: '26개', name: '입문',    desc: '논리적 추론만으로 풀 수 있는 가장 쉬운 도전 난이도. 기본기 점검용.' },
-  { key: 'expert', clues: 23, label: '23개', name: '도전',    desc: '후보 제거와 기본 기법이 필요. 풀이 경로가 하나씩 좁아지는 느낌.' },
-  { key: 'extreme',clues: 21, label: '21개', name: '고수',    desc: 'X-Wing, Swordfish 등 중급 기법이 등장. 메모 없이는 힘들어지는 구간.' },
-  { key: 'master', clues: 19, label: '19개', name: '마스터',  desc: '복합 기법과 시행착오가 필요. 평균 풀이 시간 30분 이상.' },
-  { key: 'god',    clues: 17, label: '17개', name: '신의 영역', desc: '수학적으로 증명된 최소 힌트 개수. 세상에서 가장 어려운 스도쿠.' },
+export const DIFFICULTIES = [
+  { key: 'hard',    clues: 26, label: '26개', name: '입문',      desc: '논리적 추론만으로 풀 수 있는 가장 쉬운 도전 난이도. 기본기 점검용.' },
+  { key: 'expert',  clues: 23, label: '23개', name: '도전',      desc: '후보 제거와 기본 기법이 필요. 풀이 경로가 하나씩 좁아지는 느낌.' },
+  { key: 'extreme', clues: 21, label: '21개', name: '고수',      desc: 'X-Wing, Swordfish 등 중급 기법이 등장. 메모 없이는 힘들어지는 구간.' },
+  { key: 'master',  clues: 19, label: '19개', name: '마스터',    desc: '복합 기법과 시행착오가 필요. 평균 풀이 시간 30분 이상.' },
+  { key: 'god',     clues: 17, label: '17개', name: '신의 영역', desc: '수학적으로 증명된 최소 힌트 개수. 세상에서 가장 어려운 스도쿠.' },
 ];
 
 const MAX_MISTAKES = 3;
 
+function makeGame(puzzle, solution, diff) {
+  return {
+    puzzle,
+    solution,
+    board: puzzle.map(r => [...r]),
+    notes: {},
+    selected: null,
+    conflicts: new Set(),
+    complete: false,
+    failed: false,
+    time: 0,
+    hintCount: 3,
+    mistakes: 0,
+    diff,
+  };
+}
+
 export default function App() {
-  const [screen, setScreen] = useState('lineSelect');
+  const [screen, setScreen] = useState('home');
   const [selectedLine, setSelectedLine] = useState(null);
   const [selectedDiff, setSelectedDiff] = useState(DIFFICULTIES[4]);
   const [game, setGame] = useState(null);
   const [noteMode, setNoteMode] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [history, setHistory] = useState([]); // undo 스택
+  const [history, setHistory] = useState([]);
+
+  // 오늘의 퍼즐 관련
+  const [isDailyPuzzle, setIsDailyPuzzle] = useState(false);
+  const [dailyStation, setDailyStation] = useState(null);
 
   // 타이머
   useEffect(() => {
     if (screen !== 'playing' || !game || game.complete || game.failed || paused) return;
-    const id = setInterval(() => {
-      setGame(g => ({ ...g, time: g.time + 1 }));
-    }, 1000);
+    const id = setInterval(() => setGame(g => ({ ...g, time: g.time + 1 })), 1000);
     return () => clearInterval(id);
   }, [screen, game?.complete, game?.failed, paused]);
 
-  // 시작
-  const handleStart = useCallback(() => {
+  // ── 퍼즐 시작 (공통) ──
+  const startGame = useCallback((diff) => {
     setScreen('generating');
     setTimeout(() => {
-      const { puzzle, solution } = generatePuzzle(selectedDiff.key, selectedDiff.clues);
-      setGame({
-        puzzle,
-        solution,
-        board: puzzle.map(r => [...r]),
-        notes: {}, // 메모는 비워서 시작
-        selected: null,
-        conflicts: new Set(),
-        complete: false,
-        failed: false,
-        time: 0,
-        hintCount: 3,
-        mistakes: 0,
-        diff: selectedDiff,
-      });
+      const { puzzle, solution } = generatePuzzle(diff.key, diff.clues);
+      setGame(makeGame(puzzle, solution, diff));
       setHistory([]);
       setNoteMode(false);
       setPaused(false);
       setScreen('playing');
-    }, 50);
-  }, [selectedDiff]);
+    }, 80);
+  }, []);
 
-  // 현재 상태 스냅샷 저장 (undo용)
+  // ── 일반 시작 (호선 선택 → 셋업 → 시작) ──
+  const handleStart = useCallback(() => {
+    setIsDailyPuzzle(false);
+    startGame(selectedDiff);
+  }, [selectedDiff, startGame]);
+
+  // ── 오늘의 스도쿠 시작 ──
+  const handleDailyStart = useCallback(({ station, diffIdx } = {}) => {
+    const s = station ?? getDailyStation();
+    const di = diffIdx ?? getDailyDiffIdx();
+    const diff = DIFFICULTIES[di];
+    setDailyStation(s);
+    setIsDailyPuzzle(true);
+    setSelectedDiff(diff);
+    startGame(diff);
+  }, [startGame]);
+
+  // ── Undo 스냅샷 ──
   const saveHistory = useCallback((g) => {
     setHistory(h => [...h.slice(-30), {
       board: g.board.map(r => [...r]),
-      notes: Object.fromEntries(
-        Object.entries(g.notes).map(([k, v]) => [k, new Set(v)])
-      ),
+      notes: Object.fromEntries(Object.entries(g.notes).map(([k, v]) => [k, new Set(v)])),
       mistakes: g.mistakes,
       conflicts: new Set(g.conflicts),
     }]);
   }, []);
 
-  // 셀 선택
-  const handleSelect = useCallback((r, c) => {
-    setGame(g => ({ ...g, selected: [r, c] }));
-  }, []);
+  const handleSelect   = useCallback((r, c) => setGame(g => ({ ...g, selected: [r, c] })), []);
 
-  // 숫자 입력
   const handleNumber = useCallback((num) => {
     setGame(g => {
       if (!g.selected || g.complete || g.failed) return g;
       const [r, c] = g.selected;
       if (g.puzzle[r][c] !== 0) return g;
 
-      // 메모 모드
       if (noteMode) {
         const key = `${r}-${c}`;
         const cellNotes = new Set(g.notes[key] || []);
-        if (cellNotes.has(num)) cellNotes.delete(num);
-        else cellNotes.add(num);
+        if (cellNotes.has(num)) cellNotes.delete(num); else cellNotes.add(num);
         saveHistory(g);
         return { ...g, notes: { ...g.notes, [key]: cellNotes } };
       }
 
-      // 오답 처리
       const isWrong = num !== g.solution[r][c];
       const newMistakes = isWrong ? g.mistakes + 1 : g.mistakes;
       const failed = newMistakes >= MAX_MISTAKES;
 
-      if (isWrong) {
-        saveHistory(g);
-        const newBoard = g.board.map(row => [...row]);
-        newBoard[r][c] = num;
-        return {
-          ...g,
-          board: newBoard,
-          conflicts: findConflicts(newBoard),
-          mistakes: newMistakes,
-          failed,
-        };
-      }
-
-      // 정답
       saveHistory(g);
       const newBoard = g.board.map(row => [...row]);
       newBoard[r][c] = num;
+
+      if (isWrong) {
+        return { ...g, board: newBoard, conflicts: findConflicts(newBoard), mistakes: newMistakes, failed };
+      }
+
       const newNotes = eliminateNotes(g.notes, r, c, num);
-      const conflicts = findConflicts(newBoard);
-      const complete = isComplete(newBoard, g.solution);
-      return { ...g, board: newBoard, notes: newNotes, conflicts, complete, mistakes: newMistakes };
+      return {
+        ...g,
+        board: newBoard,
+        notes: newNotes,
+        conflicts: findConflicts(newBoard),
+        mistakes: newMistakes,
+        complete: isComplete(newBoard, g.solution),
+      };
     });
   }, [noteMode, saveHistory]);
 
-  // 지우기
   const handleErase = useCallback(() => {
     setGame(g => {
       if (!g.selected || g.complete || g.failed) return g;
@@ -135,30 +147,24 @@ export default function App() {
       saveHistory(g);
       const newBoard = g.board.map(row => [...row]);
       newBoard[r][c] = 0;
-      // 지운 칸 후보 복원
-      const restoredNotes = { ...g.notes };
-      // 후보 재계산 (현재 보드 기준)
-      const tempBoard = newBoard;
       const candidates = new Set();
       for (let n = 1; n <= 9; n++) {
         let ok = true;
         for (let i = 0; i < 9; i++) {
-          if (tempBoard[r][i] === n || tempBoard[i][c] === n) { ok = false; break; }
+          if (newBoard[r][i] === n || newBoard[i][c] === n) { ok = false; break; }
         }
         if (ok) {
           const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
           for (let ri = br; ri < br + 3 && ok; ri++)
             for (let ci = bc; ci < bc + 3 && ok; ci++)
-              if (tempBoard[ri][ci] === n) ok = false;
+              if (newBoard[ri][ci] === n) ok = false;
         }
         if (ok) candidates.add(n);
       }
-      restoredNotes[`${r}-${c}`] = candidates;
-      return { ...g, board: newBoard, notes: restoredNotes, conflicts: findConflicts(newBoard) };
+      return { ...g, board: newBoard, notes: { ...g.notes, [`${r}-${c}`]: candidates }, conflicts: findConflicts(newBoard) };
     });
   }, [saveHistory]);
 
-  // 힌트
   const handleHint = useCallback(() => {
     setGame(g => {
       if (!g.selected || g.hintCount <= 0 || g.complete || g.failed) return g;
@@ -168,18 +174,10 @@ export default function App() {
       const newBoard = g.board.map(row => [...row]);
       newBoard[r][c] = g.solution[r][c];
       const newNotes = eliminateNotes(g.notes, r, c, g.solution[r][c]);
-      return {
-        ...g,
-        board: newBoard,
-        notes: newNotes,
-        conflicts: findConflicts(newBoard),
-        complete: isComplete(newBoard, g.solution),
-        hintCount: g.hintCount - 1,
-      };
+      return { ...g, board: newBoard, notes: newNotes, conflicts: findConflicts(newBoard), complete: isComplete(newBoard, g.solution), hintCount: g.hintCount - 1 };
     });
   }, [saveHistory]);
 
-  // 선택한 칸에 후보 채우기
   const handleFillCell = useCallback(() => {
     setGame(g => {
       if (!g.selected) return g;
@@ -188,9 +186,7 @@ export default function App() {
       const candidates = new Set();
       for (let n = 1; n <= 9; n++) {
         let ok = true;
-        for (let i = 0; i < 9; i++) {
-          if (g.board[r][i] === n || g.board[i][c] === n) { ok = false; break; }
-        }
+        for (let i = 0; i < 9; i++) if (g.board[r][i] === n || g.board[i][c] === n) { ok = false; break; }
         if (ok) {
           const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
           for (let ri = br; ri < br + 3 && ok; ri++)
@@ -203,16 +199,10 @@ export default function App() {
     });
   }, []);
 
-  // 전체 빈 칸 후보 채우기
   const handleFillAll = useCallback(() => {
-    setGame(g => {
-      saveHistory(g);
-      const newNotes = initNotes(g.board); // 현재 보드 기준으로 계산
-      return { ...g, notes: newNotes };
-    });
+    setGame(g => { saveHistory(g); return { ...g, notes: initNotes(g.board) }; });
   }, [saveHistory]);
 
-  // 되돌리기
   const handleUndo = useCallback(() => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
@@ -240,22 +230,43 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [screen, game?.selected, handleNumber, handleErase, handleUndo, handleSelect]);
 
-  // ── 호선 선택 ──
-  if (screen === 'lineSelect') {
+  // ──────────────────── 화면 렌더 ────────────────────
+
+  if (screen === 'home') {
     return (
-      <LineSelect
-        onSelect={(line) => { setSelectedLine(line); setScreen('setup'); }}
+      <Home
+        onDailyPuzzle={handleDailyStart}
+        onBrowseMap={() => setScreen('lineSelect')}
         onAbout={() => setScreen('about')}
       />
     );
   }
 
-  // ── 만든이 ──
-  if (screen === 'about') {
-    return <About onBack={() => setScreen('lineSelect')} />;
+  if (screen === 'lineSelect') {
+    return (
+      <LineSelect
+        onSelect={(line) => { setSelectedLine(line); setScreen('setup'); }}
+        onAbout={() => setScreen('about')}
+        onHome={() => setScreen('home')}
+      />
+    );
   }
 
-  // ── 셋업 화면 ──
+  if (screen === 'about') {
+    return <About onBack={() => setScreen('home')} />;
+  }
+
+  if (screen === 'stationCard') {
+    return (
+      <StationCard
+        station={dailyStation}
+        time={game?.time}
+        onHome={() => setScreen('home')}
+        onNextPuzzle={() => handleDailyStart()}
+      />
+    );
+  }
+
   if (screen === 'setup') {
     return (
       <div className="app">
@@ -289,7 +300,6 @@ export default function App() {
     );
   }
 
-  // ── 생성 중 ──
   if (screen === 'generating') {
     return (
       <div className="app center-screen">
@@ -297,18 +307,27 @@ export default function App() {
           <div className="spinner" />
           <p>퍼즐 생성 중...</p>
           <p className="gen-sub">{selectedDiff.label} · {selectedDiff.name}</p>
+          {isDailyPuzzle && dailyStation && (
+            <p className="gen-sub" style={{ marginTop: 4, color: '#888' }}>
+              오늘의 스도쿠
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
   // ── 게임 화면 ──
+  const backTarget = isDailyPuzzle ? 'home' : 'setup';
+  const backLabel  = isDailyPuzzle ? '홈' : '난이도 변경';
+
   return (
     <div className="app">
       <header className="header">
-        <button className="back-btn" onClick={() => setScreen('setup')}>←</button>
+        <button className="back-btn" onClick={() => setScreen(backTarget)}>←</button>
         <div className="header-center">
           <span className="playing-diff">{game.diff.label} · {game.diff.name}</span>
+          {isDailyPuzzle && <span className="daily-badge-playing">오늘의 스도쿠</span>}
         </div>
         <div className="header-right">
           <div className="mistake-counter">
@@ -350,12 +369,18 @@ export default function App() {
             canUndo={history.length > 0}
             onFillCell={handleFillCell}
             onFillAll={handleFillAll}
-            hasSelected={!!game.selected && game.board[game.selected[0]][game.selected[1]] === 0 && game.puzzle[game.selected[0]][game.selected[1]] === 0}
+            hasSelected={
+              !!game.selected &&
+              game.board[game.selected[0]][game.selected[1]] === 0 &&
+              game.puzzle[game.selected[0]][game.selected[1]] === 0
+            }
           />
         </>
       )}
 
-      <button className="new-game-btn" onClick={() => setScreen('setup')}>난이도 변경</button>
+      <button className="new-game-btn" onClick={() => setScreen(backTarget)}>
+        {backLabel}
+      </button>
 
       {/* 실패 */}
       {game.failed && (
@@ -366,8 +391,12 @@ export default function App() {
             <p className="complete-diff">실수 {MAX_MISTAKES}회 초과</p>
             <p className="complete-time">{formatTime(game.time)}</p>
             <div className="complete-btns">
-              <button onClick={handleStart}>다시 하기</button>
-              <button className="outline" onClick={() => setScreen('setup')}>난이도 변경</button>
+              <button onClick={() => isDailyPuzzle ? handleDailyStart({ station: dailyStation, diffIdx: DIFFICULTIES.indexOf(game.diff) }) : handleStart()}>
+                다시 하기
+              </button>
+              <button className="outline" onClick={() => setScreen(backTarget)}>
+                {backLabel}
+              </button>
             </div>
           </div>
         </div>
@@ -377,14 +406,36 @@ export default function App() {
       {game.complete && (
         <div className="complete-overlay">
           <div className="complete-card">
-            <div className="complete-emoji">🎉</div>
-            <h2>완성!</h2>
-            <p className="complete-diff">{game.diff.label} · {game.diff.name}</p>
-            <p className="complete-time">{formatTime(game.time)}</p>
-            <div className="complete-btns">
-              <button onClick={handleStart}>다시 하기</button>
-              <button className="outline" onClick={() => setScreen('setup')}>난이도 변경</button>
-            </div>
+            {isDailyPuzzle ? (
+              /* 오늘의 스도쿠 완성 → 역 카드 해금 */
+              <>
+                <div className="complete-emoji">🗝️</div>
+                <h2>완성!</h2>
+                <p className="complete-diff">{game.diff.label} · {game.diff.name}</p>
+                <p className="complete-time">{formatTime(game.time)}</p>
+                <p className="complete-hint">역 카드가 잠금 해제됩니다</p>
+                <div className="complete-btns">
+                  <button className="unlock-btn" onClick={() => setScreen('stationCard')}>
+                    역 카드 해금 →
+                  </button>
+                  <button className="outline" onClick={() => setScreen('home')}>
+                    홈으로
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* 일반 완성 */
+              <>
+                <div className="complete-emoji">🎉</div>
+                <h2>완성!</h2>
+                <p className="complete-diff">{game.diff.label} · {game.diff.name}</p>
+                <p className="complete-time">{formatTime(game.time)}</p>
+                <div className="complete-btns">
+                  <button onClick={handleStart}>다시 하기</button>
+                  <button className="outline" onClick={() => setScreen('setup')}>난이도 변경</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
