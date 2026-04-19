@@ -4,7 +4,7 @@
 body {
   background: #f0f4f8;
   min-height: 100vh;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Noto Sans KR', 'Segoe UI', system-ui, sans-serif;
 }
 
 #root { width: 100%; }
@@ -120,9 +120,15 @@ body {
 .line-select-map {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh;   /* standalone fallback */
   background: #f0f4f8;
   overflow: hidden;
+}
+/* 탭 안에서 사용될 때는 부모가 flex 컨테이너 → 100% 채우기 */
+.tabs-content.map-active .line-select-map {
+  height: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .map-header {
@@ -1160,4 +1166,216 @@ body {
   color: #475569;
 }
 .sc-btn:hover { opacity: 0.85; }
+
+/* ══════════════════════════════════════
+   탭 기반 레이아웃
+══════════════════════════════════════ */
+.tabs-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* 모바일 주소창 대응 */
+  overflow: hidden;
+  background: #f0f4f8;
+}
+
+/* 앱 공통 헤더 (today·records 탭) */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e8ecf0;
+  flex-shrink: 0;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.app-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.app-header-logo { font-size: 26px; line-height: 1; }
+.app-header-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: -0.3px;
+}
+.app-header-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* 탭 콘텐츠 */
+.tabs-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+/* 지도 탭: overflow 없애고 내부 flex로 채움 */
+.tabs-content.map-active {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 하단 탭바 ── */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 62px;
+  background: #fff;
+  border-top: 1px solid #e8ecf0;
+  box-shadow: 0 -2px 14px rgba(0,0,0,0.07);
+  flex-shrink: 0;
+  /* 홈 버튼 영역 대응 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  padding: 8px 0 4px;
+  color: #94a3b8;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab-item.active { color: #00A84D; }
+.tab-item:active { opacity: 0.7; }
+.tab-icon { font-size: 22px; line-height: 1; }
+.tab-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 22%;
+  right: 22%;
+  height: 2.5px;
+  background: #00A84D;
+  border-radius: 0 0 4px 4px;
+}
+
+/* ══════════════════════════════════════
+   오늘 탭
+══════════════════════════════════════ */
+.today-tab {
+  padding: 18px 16px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.today-date-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.today-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+.today-date {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* 안내 카드 그리드 */
+.today-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.info-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  border: 1px solid #f1f5f9;
+}
+.info-icon { font-size: 22px; line-height: 1; }
+.info-text {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* 스도쿠 힌트 박스 */
+.today-hint-box {
+  background: #eef2ff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  border-left: 4px solid #3b4fd8;
+}
+.hint-box-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3b4fd8;
+  margin-bottom: 8px;
+}
+.hint-box-text {
+  font-size: 13px;
+  color: #4338ca;
+  line-height: 1.75;
+}
+
+/* ══════════════════════════════════════
+   기록 탭
+══════════════════════════════════════ */
+.records-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px 40px;
+  min-height: 300px;
+}
+.records-empty {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.records-empty-icon {
+  font-size: 52px;
+  line-height: 1;
+  opacity: 0.45;
+}
+.records-empty h3 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #334155;
+}
+.records-empty p {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.65;
+}
 

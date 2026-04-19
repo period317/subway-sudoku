@@ -20,7 +20,7 @@ function Stars({ count }) {
   );
 }
 
-export default function Home({ onDailyPuzzle, onBrowseMap, onAbout }) {
+export default function Home({ onDailyPuzzle }) {
   const { station, diffIdx } = useMemo(() => ({
     station: getDailyStation(),
     diffIdx: getDailyDiffIdx(),
@@ -30,80 +30,71 @@ export default function Home({ onDailyPuzzle, onBrowseMap, onAbout }) {
   const diff = DIFF_DISPLAY[diffIdx];
 
   const today = new Date();
-  const dateStr = `${today.getMonth() + 1}월 ${today.getDate()}일`;
+  const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
   return (
-    <div className="home-screen">
-      {/* 헤더 */}
-      <header className="home-header">
-        <div className="home-brand">
-          <span className="home-logo">🚇</span>
-          <div>
-            <h1 className="home-title">서브웨이 스도쿠</h1>
-            <p className="home-subtitle">서울 지하철로 떠나는 퍼즐 여행</p>
-          </div>
+    <div className="today-tab">
+
+      {/* 날짜 헤더 */}
+      <div className="today-date-header">
+        <span className="today-label">오늘의 스도쿠</span>
+        <span className="today-date">{dateStr}</span>
+      </div>
+
+      {/* 메인 수수께끼 카드 */}
+      <div className="daily-card" onClick={() => onDailyPuzzle({ station, diffIdx })}>
+
+        <div className="daily-card-top">
+          <span className="mystery-badge">??? 역</span>
+          <span className="daily-line-hint">2호선</span>
         </div>
-        <button className="about-btn" onClick={onAbout}>만든이</button>
-      </header>
 
-      <main className="home-main">
+        <div className="daily-teaser-wrap">
+          <span className="teaser-quote open">"</span>
+          <p className="daily-teaser-text">{teaser}</p>
+          <span className="teaser-quote close">"</span>
+        </div>
 
-        {/* ── 오늘의 스도쿠 카드 ── */}
-        <section className="home-section">
-          <h2 className="section-label">
-            <span className="section-dot today-dot" />
-            오늘의 스도쿠
-            <span className="section-date">{dateStr}</span>
-          </h2>
+        <p className="daily-sub">어느 역인지 알겠나요? 풀면 밝혀집니다.</p>
 
-          <div className="daily-card" onClick={() => onDailyPuzzle({ station, diffIdx })}>
-            {/* 미스터리 뱃지 */}
-            <div className="daily-card-top">
-              <span className="mystery-badge">??? 역</span>
-              <span className="daily-line-hint">2호선</span>
-            </div>
+        <div className="daily-diff-row">
+          <Stars count={diff.stars} />
+          <span className="daily-diff-label">{diff.name} · 힌트 {diff.clues}개</span>
+        </div>
 
-            {/* 수수께끼 문구 */}
-            <div className="daily-teaser-wrap">
-              <span className="teaser-quote open">"</span>
-              <p className="daily-teaser-text">{teaser}</p>
-              <span className="teaser-quote close">"</span>
-            </div>
+        <button
+          className="daily-start-btn"
+          onClick={e => { e.stopPropagation(); onDailyPuzzle({ station, diffIdx }); }}
+        >
+          지금 풀기 →
+        </button>
+      </div>
 
-            <p className="daily-sub">어느 역인지 알겠나요? 풀면 밝혀집니다.</p>
+      {/* 안내 카드 */}
+      <div className="today-info-grid">
+        <div className="info-card">
+          <span className="info-icon">🔒</span>
+          <span className="info-text">풀면 역 카드 해금</span>
+        </div>
+        <div className="info-card">
+          <span className="info-icon">📅</span>
+          <span className="info-text">매일 새 역</span>
+        </div>
+        <div className="info-card">
+          <span className="info-icon">🚇</span>
+          <span className="info-text">2호선 51개 역</span>
+        </div>
+      </div>
 
-            {/* 난이도 */}
-            <div className="daily-diff-row">
-              <Stars count={diff.stars} />
-              <span className="daily-diff-label">{diff.name} · 힌트 {diff.clues}개</span>
-            </div>
+      {/* 힌트 박스 */}
+      <div className="today-hint-box">
+        <div className="hint-box-title">💡 스도쿠란?</div>
+        <p className="hint-box-text">
+          9×9 칸에 1~9를 한 번씩만 채우는 퍼즐.<br />
+          힌트가 적을수록 어렵고, <strong>17개</strong>는 수학적으로 증명된 최솟값입니다.
+        </p>
+      </div>
 
-            <button className="daily-start-btn" onClick={e => { e.stopPropagation(); onDailyPuzzle({ station, diffIdx }); }}>
-              지금 풀기 →
-            </button>
-          </div>
-        </section>
-
-        {/* ── 노선도 탐색 ── */}
-        <section className="home-section">
-          <h2 className="section-label">
-            <span className="section-dot map-dot" />
-            직접 고르기
-          </h2>
-
-          <button className="browse-card" onClick={onBrowseMap}>
-            <div className="browse-card-inner">
-              <span className="browse-icon">🗺</span>
-              <div className="browse-text">
-                <span className="browse-title">노선도 탐색</span>
-                <span className="browse-desc">수도권 전체 지도에서 역을 골라 도전</span>
-              </div>
-            </div>
-            <span className="browse-arrow">→</span>
-          </button>
-        </section>
-
-      </main>
     </div>
   );
 }
