@@ -7,6 +7,7 @@ import Home from './components/Home';
 import StationCard from './components/StationCard';
 import TabBar from './components/TabBar';
 import RecordsTab from './components/RecordsTab';
+import DailyModal from './components/DailyModal';
 import {
   generatePuzzle, findConflicts, isComplete,
   formatTime, initNotes, eliminateNotes
@@ -49,6 +50,7 @@ export default function App() {
   const [history, setHistory]         = useState([]);
   const [isDailyPuzzle, setIsDailyPuzzle] = useState(false);
   const [dailyStation, setDailyStation]   = useState(null);
+  const [pendingDaily, setPendingDaily]   = useState(null); // { station, diffIdx }
 
   // 타이머
   useEffect(() => {
@@ -384,7 +386,7 @@ export default function App() {
       {/* 탭 콘텐츠 */}
       <main className={`tabs-content${isMapTab ? ' map-active' : ''}`}>
         {activeTab === 'today' && (
-          <Home onDailyPuzzle={handleDailyStart} />
+          <Home onDailyPuzzle={({ station, diffIdx }) => setPendingDaily({ station, diffIdx })} />
         )}
         {activeTab === 'map' && (
           <LineSelect
@@ -399,6 +401,19 @@ export default function App() {
 
       {/* 하단 탭바 */}
       <TabBar activeTab={activeTab} onChange={setActiveTab} />
+
+      {/* 오늘의 스도쿠 시작 모달 */}
+      {pendingDaily && (
+        <DailyModal
+          station={pendingDaily.station}
+          diffIdx={pendingDaily.diffIdx}
+          onClose={() => setPendingDaily(null)}
+          onStart={() => {
+            handleDailyStart(pendingDaily);
+            setPendingDaily(null);
+          }}
+        />
+      )}
     </div>
   );
 }
