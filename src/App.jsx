@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Board from './components/Board';
 import NumberPad from './components/NumberPad';
 import LineSelect from './components/LineSelect';
+import Line2Map from './components/Line2Map';
 import About from './components/About';
 import Home from './components/Home';
 import StationCard from './components/StationCard';
@@ -51,6 +52,7 @@ export default function App() {
   const [isDailyPuzzle, setIsDailyPuzzle] = useState(false);
   const [dailyStation, setDailyStation]   = useState(null);
   const [pendingDaily, setPendingDaily]   = useState(null); // { station, diffIdx }
+  const [mapStation,   setMapStation]     = useState(null); // 지도에서 선택한 역
 
   // 타이머
   useEffect(() => {
@@ -73,9 +75,18 @@ export default function App() {
   }, []);
 
   const handleStart = useCallback(() => {
-    setIsDailyPuzzle(false);
+    if (!mapStation) setIsDailyPuzzle(false);
+    setMapStation(null);
     startGame(selectedDiff);
-  }, [selectedDiff, startGame]);
+  }, [selectedDiff, startGame, mapStation]);
+
+  // 지도에서 역 선택 → 난이도 선택 화면으로
+  const handleMapSelect = useCallback((station) => {
+    setMapStation(station);
+    setDailyStation(station);
+    setIsDailyPuzzle(true);
+    setScreen('setup');
+  }, []);
 
   const handleDailyStart = useCallback(({ station, diffIdx } = {}) => {
     const s  = station  ?? getDailyStation();
@@ -219,17 +230,19 @@ export default function App() {
     );
   }
 
-  // 난이도 선택 (호선 선택 후)
+  // 난이도 선택 (호선 선택 후 or 지도 역 선택 후)
   if (screen === 'setup') {
+    const setupTitle = mapStation?.name ?? selectedLine?.name ?? '스도쿠';
+    const setupColor = mapStation ? '#00A84D' : (selectedLine?.color ?? '#3b4fd8');
     return (
       <div className="app">
         <header className="header setup-header">
-          <button className="back-btn" onClick={() => setScreen('tabs')}>←</button>
+          <button className="back-btn" onClick={() => { setMapStation(null); setScreen('tabs'); }}>←</button>
           <div>
-            <h1 className="title" style={{ color: selectedLine?.color }}>
-              {selectedLine?.name ?? '스도쿠'}
+            <h1 className="title" style={{ color: setupColor }}>
+              {setupTitle}
             </h1>
-            <p className="subtitle">힌트 개수를 선택하세요</p>
+            <p className="subtitle">{mapStation ? '2호선 · 힌트 개수를 선택하세요' : '힌트 개수를 선택하세요'}</p>
           </div>
         </header>
         <div className="diff-list">
@@ -389,10 +402,7 @@ export default function App() {
           <Home onDailyPuzzle={({ station, diffIdx }) => setPendingDaily({ station, diffIdx })} />
         )}
         {activeTab === 'map' && (
-          <LineSelect
-            onSelect={(line) => { setSelectedLine(line); setScreen('setup'); }}
-            onAbout={() => setScreen('about')}
-          />
+          <Line2Map onSelectStation={handleMapSelect} />
         )}
         {activeTab === 'records' && (
           <RecordsTab />
